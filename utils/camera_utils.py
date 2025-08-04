@@ -8,11 +8,15 @@
 #
 # For inquiries contact  george.drettakis@inria.fr
 #
-
+import os
+import torch
+import torchvision.utils
 from scene.cameras import Camera
 import numpy as np
 from utils.general_utils import PILtoTorch
 from utils.graphics_utils import fov2focal
+
+from tqdm import tqdm
 
 WARNED = False
 
@@ -37,9 +41,8 @@ def loadCam(args, id, cam_info, resolution_scale):
 
         scale = float(global_down) * float(resolution_scale)
         resolution = (int(orig_w / scale), int(orig_h / scale))
-
+        
     if len(cam_info.image.split()) > 3:
-        import torch
         resized_image_rgb = torch.cat([PILtoTorch(im, resolution) for im in cam_info.image.split()[:3]], dim=0)
         loaded_mask = PILtoTorch(cam_info.image.split()[3], resolution)
         gt_image = resized_image_rgb
@@ -47,17 +50,32 @@ def loadCam(args, id, cam_info, resolution_scale):
         resized_image_rgb = PILtoTorch(cam_info.image, resolution)
         loaded_mask = None
         gt_image = resized_image_rgb
+    
+    resized_mask = None
+    if cam_info.mask is not None:
+        # Set all non-zero pixels to 255 (so they become 1.0 after division inside PILtoTorch). This ensure mask is binary.
+        binary_mask = cam_info.mask.point(lambda p: 255 if p != 0 else 0) 
+        resized_mask = PILtoTorch(binary_mask, resolution)
+
+        # Save mask preview for debuggin
+        masked_preview = resized_image_rgb * resized_mask
+        preview_save_path = os.path.join(args.model_path, "mask_preview", cam_info.image_name.replace("/", "_") + ".png")
+        os.makedirs(os.path.dirname(preview_save_path), exist_ok=True)
+        torchvision.utils.save_image(masked_preview, preview_save_path)
+
 
     return Camera(colmap_id=cam_info.uid, R=cam_info.R, T=cam_info.T, 
                   FoVx=cam_info.FovX, FoVy=cam_info.FovY, 
-                  image=gt_image, gt_alpha_mask=loaded_mask,
+                  image=gt_image, mask=resized_mask, gt_alpha_mask=loaded_mask,
                   image_name=cam_info.image_name, uid=id, data_device=args.data_device)
 
 def cameraList_from_camInfos(cam_infos, resolution_scale, args):
     camera_list = []
 
-    for id, c in enumerate(cam_infos):
-        camera_list.append(loadCam(args, id, c, resolution_scale))
+    with tqdm(enumerate(cam_infos), total=len(cam_infos)) as t:
+        for id, c in t:
+            t.set_description("{}".format(c.image_name))
+            camera_list.append(loadCam(args, id, c, resolution_scale))
 
     return camera_list
 

@@ -24,18 +24,23 @@ class ParamGroup:
             if key.startswith("_"):
                 shorthand = True
                 key = key[1:]
+                
             t = type(value)
-            value = value if not fill_none else None 
+            default = value if not fill_none else None 
+            if isinstance(value, dict):
+                t = value["type"]
+                default = value["default"]
+            
             if shorthand:
                 if t == bool:
-                    group.add_argument("--" + key, ("-" + key[0:1]), default=value, action="store_true")
+                    group.add_argument("--" + key, ("-" + key[0:1]), default=default, action="store_true")
                 else:
-                    group.add_argument("--" + key, ("-" + key[0:1]), default=value, type=t)
+                    group.add_argument("--" + key, ("-" + key[0:1]), default=default, type=t)
             else:
                 if t == bool:
-                    group.add_argument("--" + key, default=value, action="store_true")
+                    group.add_argument("--" + key, default=default, action="store_true")
                 else:
-                    group.add_argument("--" + key, default=value, type=t)
+                    group.add_argument("--" + key, default=default, type=t)
 
     def extract(self, args):
         group = GroupParams()
@@ -54,6 +59,7 @@ class ModelParams(ParamGroup):
         self._white_background = False
         self.data_device = "cuda"
         self.eval = False
+        self.masks = { "type": str, "default": None }
         self.render_items = ['RGB', 'Alpha', 'Normal', 'Depth', 'Edge', 'Curvature']
         super().__init__(parser, "Loading Parameters", sentinel)
 
