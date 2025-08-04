@@ -30,7 +30,7 @@ class Camera(nn.Module):
         self.image_name = image_name
 
         # Loading masks
-        self.mask = mask # binary mask (0 for ignored pixels, 1 for visible pixels)
+        self.obj_mask = mask # binary foreground mask (0 for ignored pixels, 1 for visible pixels)
 
         try:
             self.data_device = torch.device(data_device)

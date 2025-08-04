@@ -88,9 +88,10 @@ class OptimizationParams(ParamGroup):
         self.scaling_lr = 0.005
         self.rotation_lr = 0.001
         self.percent_dense = 0.01
-        self.lambda_dssim = 0.2
-        self.lambda_dist = 0.0
-        self.lambda_normal = 0.05
+        self.lambda_dssim = 0.2 # weight for dssim loss vs photometric loss
+        self.lambda_dist = 0.0 # weight for distance loss
+        self.lambda_normal = 0.05 # weight for normal loss
+        self.lambda_bg = 0.5 # weight for background loss (section 5.1 of object-centrics 2DGS)
         self.opacity_cull = 0.05
 
         self.densification_interval = 100
