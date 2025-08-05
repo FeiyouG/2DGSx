@@ -40,7 +40,6 @@ class GaussianModel:
         self.inverse_opacity_activation = inverse_sigmoid
         self.rotation_activation = torch.nn.functional.normalize
 
-
     def __init__(self, sh_degree : int):
         self.active_sh_degree = 0
         self.max_sh_degree = sh_degree  
@@ -56,6 +55,7 @@ class GaussianModel:
         self.optimizer = None
         self.percent_dense = 0
         self.spatial_lr_scale = 0
+        self.seen = torch.empty(0)
         self.setup_functions()
 
     def capture(self):
@@ -164,6 +164,7 @@ class GaussianModel:
                                                     lr_final=training_args.position_lr_final*self.spatial_lr_scale,
                                                     lr_delay_mult=training_args.position_lr_delay_mult,
                                                     max_steps=training_args.position_lr_max_steps)
+        self.seen = torch.ones(self.get_xyz.shape[0], device="cuda", dtype=torch.bool, requires_grad=False)
 
     def update_learning_rate(self, iteration):
         ''' Learning rate scheduling per step '''
@@ -303,6 +304,8 @@ class GaussianModel:
         self.denom = self.denom[valid_points_mask]
         self.max_radii2D = self.max_radii2D[valid_points_mask]
 
+        self.seen = self.seen[valid_points_mask]
+
     def cat_tensors_to_optimizer(self, tensors_dict):
         optimizable_tensors = {}
         for group in self.optimizer.param_groups:
@@ -344,6 +347,8 @@ class GaussianModel:
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
+
+        self.seen = torch.cat((self.seen, torch.ones(new_opacities.shape[0], device="cuda", dtype=torch.bool, requires_grad=False)), dim=0)
 
     def densify_and_split(self, grads, grad_threshold, scene_extent, N=2):
         n_init_points = self.get_xyz.shape[0]
@@ -405,3 +410,14 @@ class GaussianModel:
     def add_densification_stats(self, viewspace_point_tensor, update_filter):
         self.xyz_gradient_accum[update_filter] += torch.norm(viewspace_point_tensor.grad[update_filter], dim=-1, keepdim=True)
         self.denom[update_filter] += 1
+
+    def add_seen_status(self, update_filter):
+        self.seen[update_filter] = True
+    
+    def clear_seen_status(self):
+        self.seen = torch.zeros(self.get_xyz.shape[0], device="cuda", dtype=torch.bool, requires_grad=False)
+
+    def prune_unseen(self): 
+        if self.seen.sum() < self.seen.numel():
+            self.prune_points(~self.seen)
+        self.clear_seen_status()
