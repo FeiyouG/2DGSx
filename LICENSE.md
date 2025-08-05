@@ -81,3 +81,28 @@ GOODS OR SERVICES, LOSS OF USE, DATA, OR PROFITS OR BUSINESS INTERRUPTION)
 HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT  
 LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING FROM, OUT OF OR  
 IN CONNECTION WITH THE *SOFTWARE* OR THE USE OR OTHER DEALINGS IN THE *SOFTWARE*.  
+
+------------------------------------------------------------------------
+Additional Terms for This Fork ("2DGSx")
+------------------------------------------------------------------------
+
+This repository, **2DGSx**, is a derivative work of the original 2D Gaussian Splatting (2DGS) repository available at:
+https://github.com/hbb1/2d-gaussian-splatting
+
+It also incorporates ideas and modifications based on the paper and code:
+**“Object-Centric 2D Gaussian Splatting”** by Marcel Rogge and Rainer Stiefelhagen  
+https://github.com/MarcelRogge/object-centric-2dgs
+
+Modifications and contributions in this repository were made by:
+
+    **Feiyou Guo**
+    Email: exquisitian@gmail.com
+
+These contributions are licensed under the same non-commercial terms as the original, **with the following clarifications**:
+
+- **Permitted Use:** The modifications introduced in this repository are freely available for **non-commercial research and evaluation purposes**, in line with the upstream license.
+- **Commercial Use:** Any use of this repository or its derivative works for **commercial purposes** (including integration into commercial products, services, or monetized tools) is **not permitted** without **prior written consent** from **Feiyou Guo**.
+- **Attribution:** You must retain this section along with the original license text when redistributing or modifying this work.
+- **Scope:** These terms apply to the modified portions of the codebase contributed by Feiyou Guo. The original license continues to apply to all upstream code.
+
+For inquiries regarding commercial use, licensing, or collaboration opportunities, please contact Feiyou Guo at exquisitian@gmail.com
