@@ -51,6 +51,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
+
+    # Every camera has to be seen at least twice;
+    # Set to 2 times per the recommendation from object-centric 2DGS paper
+    prune_unseen_interval = len(scene.getTrainCameras()) * 2 
+
     for iteration in range(first_iter, opt.iterations + 1):        
 
         iter_start.record()
@@ -67,11 +72,18 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack)-1))
         
         render_pkg = render(viewpoint_cam, gaussians, pipe, background)
-        image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
+        image, viewspace_point_tensor, visibility_filter, radii, alpha, seen = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"], render_pkg["rend_alpha"], render_pkg["seen"]
         
         gt_image = viewpoint_cam.original_image.cuda()
-        Ll1 = l1_loss(image, gt_image)
-        loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim(image, gt_image))
+        obj_mask = viewpoint_cam.obj_mask.cuda()
+
+        masked_gt_image = gt_image * obj_mask
+        masked_image = image * obj_mask
+        
+        # Photometric loss
+        Ll1 = l1_loss(masked_image, masked_gt_image)
+        ssim_loss = ssim(masked_image, masked_gt_image)
+        loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_loss)
         
         # regularization
         lambda_normal = opt.lambda_normal if iteration > 7000 else 0.0
@@ -84,8 +96,12 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         normal_loss = lambda_normal * (normal_error).mean()
         dist_loss = lambda_dist * (rend_dist).mean()
 
+        # Background loss
+        bg_mask = 1.0 - obj_mask
+        bg_loss = opt.lambda_bg * (alpha * bg_mask).mean()  
+
         # loss
-        total_loss = loss + dist_loss + normal_loss
+        total_loss = loss + dist_loss + normal_loss + bg_loss
         
         total_loss.backward()
 
@@ -121,6 +137,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
 
+            # Add seen status from rendering
+            gaussians.add_seen_status(seen)
 
             # Densification
             if iteration < opt.densify_until_iter:
@@ -133,6 +151,9 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 
                 if iteration % opt.opacity_reset_interval == 0 or (dataset.white_background and iteration == opt.densify_from_iter):
                     gaussians.reset_opacity()
+
+            if iteration % prune_unseen_interval == 0:
+                gaussians.prune_unseen()
 
             # Optimizer step
             if iteration < opt.iterations:
@@ -166,6 +187,13 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 except Exception as e:
                     # raise e
                     network_gui.conn = None
+
+    # Final pruning after training loop
+    gaussians.clear_seen_status()
+    for cam in scene.getTrainCameras():
+        render_pkg = render(cam, gaussians, pipe, background)
+        gaussians.add_seen_status(render_pkg["seen"])
+    gaussians.prune_unseen()
 
 def prepare_output_and_logger(args):    
     if not args.model_path:

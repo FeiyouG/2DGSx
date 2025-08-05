@@ -24,18 +24,23 @@ class ParamGroup:
             if key.startswith("_"):
                 shorthand = True
                 key = key[1:]
+                
             t = type(value)
-            value = value if not fill_none else None 
+            default = value if not fill_none else None 
+            if isinstance(value, dict):
+                t = value["type"]
+                default = value["default"]
+            
             if shorthand:
                 if t == bool:
-                    group.add_argument("--" + key, ("-" + key[0:1]), default=value, action="store_true")
+                    group.add_argument("--" + key, ("-" + key[0:1]), default=default, action="store_true")
                 else:
-                    group.add_argument("--" + key, ("-" + key[0:1]), default=value, type=t)
+                    group.add_argument("--" + key, ("-" + key[0:1]), default=default, type=t)
             else:
                 if t == bool:
-                    group.add_argument("--" + key, default=value, action="store_true")
+                    group.add_argument("--" + key, default=default, action="store_true")
                 else:
-                    group.add_argument("--" + key, default=value, type=t)
+                    group.add_argument("--" + key, default=default, type=t)
 
     def extract(self, args):
         group = GroupParams()
@@ -54,6 +59,7 @@ class ModelParams(ParamGroup):
         self._white_background = False
         self.data_device = "cuda"
         self.eval = False
+        self.masks = { "type": str, "default": None }
         self.render_items = ['RGB', 'Alpha', 'Normal', 'Depth', 'Edge', 'Curvature']
         super().__init__(parser, "Loading Parameters", sentinel)
 
@@ -82,9 +88,10 @@ class OptimizationParams(ParamGroup):
         self.scaling_lr = 0.005
         self.rotation_lr = 0.001
         self.percent_dense = 0.01
-        self.lambda_dssim = 0.2
-        self.lambda_dist = 0.0
-        self.lambda_normal = 0.05
+        self.lambda_dssim = 0.2 # weight for dssim loss vs photometric loss
+        self.lambda_dist = 0.0 # weight for distance loss
+        self.lambda_normal = 0.05 # weight for normal loss
+        self.lambda_bg = 0.5 # weight for background loss (section 5.1 of object-centrics 2DGS)
         self.opacity_cull = 0.05
 
         self.densification_interval = 100
