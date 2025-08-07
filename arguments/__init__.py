@@ -94,6 +94,8 @@ class OptimizationParams(ParamGroup):
         self.lambda_bg = 0.5 # weight for background loss (section 5.1 of object-centrics 2DGS)
         self.opacity_cull = 0.05
 
+        self.prune_unseen = False # Whether to apply gaussians that never contriubtes to the scene
+
         self.densification_interval = 100
         self.opacity_reset_interval = 3000
         self.densify_from_iter = 500

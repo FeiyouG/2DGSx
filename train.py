@@ -152,7 +152,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
                 if iteration % opt.opacity_reset_interval == 0 or (dataset.white_background and iteration == opt.densify_from_iter):
                     gaussians.reset_opacity()
 
-            if iteration % prune_unseen_interval == 0:
+            if opt.prune_unseen and iteration % prune_unseen_interval == 0:
                 gaussians.prune_unseen()
 
             # Optimizer step
@@ -190,10 +190,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     # Final pruning after training loop
     gaussians.clear_seen_status()
-    for cam in scene.getTrainCameras():
-        render_pkg = render(cam, gaussians, pipe, background)
-        gaussians.add_seen_status(render_pkg["seen"])
-    gaussians.prune_unseen()
+    if opt.prune_unseen: 
+        for cam in scene.getTrainCameras():
+            render_pkg = render(cam, gaussians, pipe, background)
+            gaussians.add_seen_status(render_pkg["seen"])
+        gaussians.prune_unseen()
 
 def prepare_output_and_logger(args):    
     if not args.model_path:
