@@ -75,14 +75,15 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         image, viewspace_point_tensor, visibility_filter, radii, alpha, seen = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"], render_pkg["rend_alpha"], render_pkg["seen"]
         
         gt_image = viewpoint_cam.original_image.cuda()
-        obj_mask = viewpoint_cam.obj_mask.cuda()
 
-        masked_gt_image = gt_image * obj_mask
-        masked_image = image * obj_mask
+        if viewpoint_cam.obj_mask is not None:
+            obj_mask = viewpoint_cam.obj_mask.cuda()
+            gt_image = gt_image * obj_mask
+            image = image * obj_mask
         
         # Photometric loss
-        Ll1 = l1_loss(masked_image, masked_gt_image)
-        ssim_loss = ssim(masked_image, masked_gt_image)
+        Ll1 = l1_loss(image, gt_image)
+        ssim_loss = ssim(image, gt_image)
         loss = (1.0 - opt.lambda_dssim) * Ll1 + opt.lambda_dssim * (1.0 - ssim_loss)
         
         # regularization
@@ -96,9 +97,11 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
         normal_loss = lambda_normal * (normal_error).mean()
         dist_loss = lambda_dist * (rend_dist).mean()
 
-        # Background loss
-        bg_mask = 1.0 - obj_mask
-        bg_loss = opt.lambda_bg * (alpha * bg_mask).mean()  
+        # Background loss]
+        bg_loss = 0.0
+        if viewpoint_cam.obj_mask is not None:
+            bg_mask = 1.0 - obj_mask
+            bg_loss = opt.lambda_bg * (alpha * bg_mask).mean()  
 
         # loss
         total_loss = loss + dist_loss + normal_loss + bg_loss
